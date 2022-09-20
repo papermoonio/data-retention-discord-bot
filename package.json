@@ -2,13 +2,16 @@
   "name": "data-retention-discord-bot",
   "version": "1.0.0",
   "description": "Deletes messages to help with data retention.",
-  "main": "index.js",
+  "main": "index.ts",
   "dependencies": {
-    "discord.js": "^14.3.0"
+    "@discordjs/rest": "^1.1.0",
+    "discord.js": "^14.3.0",
+    "dotenv": "^16.0.2"
   },
-  "devDependencies": {},
-  "scripts": {
-  },
-  "author": "",
-  "license": "ISC"
+  "scripts": {},
+  "author": "🌕 🌕 🌕",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node": "^10.9.1"
+  }
 }
