@@ -43,31 +43,38 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply('Pong!');
     }
     else if (commandName == 'delete') {
+        // Get first message to find the rest
         let msgPtr: Message | undefined = await interaction.channel?.messages.fetch({ limit: 1 })
             .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
         if(msgPtr == undefined) {
             await interaction.reply(`No messages found!`);
             return;
         }
-        const allMsgs: Message[] = [msgPtr];
+
+        // Create a threshold to filter by
+        const dateThreshold = new Date();
+        dateThreshold.setHours(dateThreshold.getHours() - 6);
+        const timestampThreshold = dateThreshold.valueOf();
+        const oldMsgs: Message[] = [];
+        const addIfTooOld = (msg: Message) => { if(msg.createdTimestamp < timestampThreshold) oldMsgs.push(msg); }
+        addIfTooOld(msgPtr);
 
         // Query until there are no more messages
         while(msgPtr != undefined) {
             const msgQuery: Collection<string, Message<boolean>> | undefined = 
                 await interaction.channel?.messages.fetch({ limit: 100, before: msgPtr.id });
-            msgQuery?.forEach(m => { 
-                // TODO: add message if it's old enough
-                allMsgs.push(m);
-            });
+            msgQuery?.forEach(addIfTooOld);
 
             // Update our message pointer to be last message in page of messages
             if(msgQuery) msgPtr = 0 < msgQuery.size ? msgQuery.at(msgQuery.size - 1) : undefined;
             else msgPtr = undefined;
         }
 
-        console.log(allMsgs.length + 'messages found');
-        // if (allMsgs.length > 0) await interaction.channel?.messages.delete(allMsgs[0]);
-        await interaction.reply(`Messages Found: ${allMsgs.length}`);
+        // Reply & delete
+        await interaction.reply(`Messages Found that were made 6 hours ago (${timestampThreshold}): ${oldMsgs.length}. Deleting...`);
+        for(const m in oldMsgs) {
+            await interaction.channel?.messages.delete(oldMsgs[m]);
+        }
     }
     else if (commandName == 'shutdown') {
         await interaction.reply("Shutting down...");
