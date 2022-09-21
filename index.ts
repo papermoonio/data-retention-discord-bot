@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, SlashCommandBuilder, Routes, Message } from 'discord.js';
+import { Client, GatewayIntentBits, SlashCommandBuilder, Routes, Message, Collection } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { REST } from '@discordjs/rest';
 
@@ -23,9 +23,9 @@ async function RegisterCommands() {
         new SlashCommandBuilder().setName('shutdown').setDescription('Terminates the bot.')
     ]
         .map(command => command.toJSON());
-    
+
     const rest = new REST({ version: '10' }).setToken(token);
-    
+
     await rest.put(Routes.applicationGuildCommands(appId, serverId), { body: commands });
     console.log("Added commands.");
 }
@@ -35,23 +35,41 @@ client.once('ready', () => console.log('Ready!'));
 
 // On Interaction (interpret commands)
 client.on('interactionCreate', async interaction => {
-	if (!interaction.isChatInputCommand()) return;
+    if (!interaction.isChatInputCommand()) return;
 
-	const { commandName } = interaction;
+    const { commandName } = interaction;
 
-	if (commandName === 'ping') {
-		await interaction.reply('Pong!');
-	}
-    else if(commandName == 'delete') {
-        // TODO: add pagination https://stackoverflow.com/a/71620968
-        const allMsgs: Message[] = [];
-        const msgs = await interaction.channel?.messages.fetch({ limit: 100 });
-        msgs?.forEach(m => allMsgs.push(m));
+    if (commandName === 'ping') {
+        await interaction.reply('Pong!');
+    }
+    else if (commandName == 'delete') {
+        let msgPtr: Message | undefined = await interaction.channel?.messages.fetch({ limit: 1 })
+            .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
+        if(msgPtr == undefined) {
+            await interaction.reply(`No messages found!`);
+            return;
+        }
+        const allMsgs: Message[] = [msgPtr];
+
+        // Query until there are no more messages
+        while(msgPtr != undefined) {
+            const msgQuery: Collection<string, Message<boolean>> | undefined = 
+                await interaction.channel?.messages.fetch({ limit: 100, before: msgPtr.id });
+            msgQuery?.forEach(m => { 
+                // TODO: add message if it's old enough
+                allMsgs.push(m);
+            });
+
+            // Update our message pointer to be last message in page of messages
+            if(msgQuery) msgPtr = 0 < msgQuery.size ? msgQuery.at(msgQuery.size - 1) : undefined;
+            else msgPtr = undefined;
+        }
+
         console.log(allMsgs.length + 'messages found');
-        if(allMsgs.length > 0) await interaction.channel?.messages.delete(allMsgs[0]);
+        // if (allMsgs.length > 0) await interaction.channel?.messages.delete(allMsgs[0]);
         await interaction.reply(`Messages Found: ${allMsgs.length}`);
     }
-    else if(commandName == 'shutdown') {
+    else if (commandName == 'shutdown') {
         await interaction.reply("Shutting down...");
         client.destroy();
     }
