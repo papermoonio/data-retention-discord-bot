@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, SlashCommandBuilder, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, SlashCommandBuilder, Routes, Message } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { REST } from '@discordjs/rest';
 
@@ -7,7 +7,6 @@ dotenv.config();
 const token = process.env.DISCORD_TOKEN as string;
 const appId = process.env.APPLICATION_ID as string;
 const serverId = process.env.SERVER_ID as string;
-console.log(token);
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
@@ -16,10 +15,12 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 client.login(token);
 
 // Commands
+// TODO: add permissions to commands
 async function RegisterCommands() {
     const commands = [
         new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
         new SlashCommandBuilder().setName('delete').setDescription('Deletes stuff'),
+        new SlashCommandBuilder().setName('shutdown').setDescription('Terminates the bot.')
     ]
         .map(command => command.toJSON());
     
@@ -43,13 +44,17 @@ client.on('interactionCreate', async interaction => {
 	}
     else if(commandName == 'delete') {
         // TODO: add pagination https://stackoverflow.com/a/71620968
+        const allMsgs: Message[] = [];
         const msgs = await interaction.channel?.messages.fetch({ limit: 100 });
-
-        console.log(msgs);
-		await interaction.reply('sure thing my man');
+        msgs?.forEach(m => allMsgs.push(m));
+        console.log(allMsgs.length + 'messages found');
+        if(allMsgs.length > 0) await interaction.channel?.messages.delete(allMsgs[0]);
+        await interaction.reply(`Messages Found: ${allMsgs.length}`);
+    }
+    else if(commandName == 'shutdown') {
+        await interaction.reply("Shutting down...");
+        client.destroy();
     }
 });
-
-client.login(token);
 
 RegisterCommands();
