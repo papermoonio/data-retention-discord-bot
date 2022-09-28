@@ -75,7 +75,7 @@ client.on('interactionCreate', async interaction => {
     else if (commandName == 'delete' || commandName == 'intervaldel') {
         // Get channel to delete in
         const deletingChannel = interaction.options.getChannel('channel');
-        const isTextChannel = (tbd: any): tbd is TextChannel => true;
+        const isTextChannel = (tbd: any): tbd is TextChannel => (tbd as TextChannel).messages !== undefined;
         if (!isTextChannel(deletingChannel)) {
             await interaction.reply(`Please insert a text channel!`);
             return;
@@ -113,7 +113,7 @@ client.on('interactionCreate', async interaction => {
                 }
             }
 
-            await interaction.reply("Delete coroutine started. Will begin deletion every 5 minutes.");
+            await interaction.reply(`Delete process started for ${deletingChannel.name}. Will begin deletion every 5 minutes.`);
 
             // Build old message collection to hold query responses
             const oldMsgs: Message[] = [];
