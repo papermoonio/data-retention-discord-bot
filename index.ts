@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, SlashCommandBuilder, SlashCommandIntegerOption, Routes, Message, Collection } from 'discord.js';
+import { Client, GatewayIntentBits, SlashCommandBuilder, SlashCommandIntegerOption, Routes, Message, Collection, VoiceChannel, TextChannel } from 'discord.js';
 import * as dotenv from 'dotenv';
 import { REST } from '@discordjs/rest';
 
@@ -15,24 +15,37 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 client.login(token);
 
 // Commands
-// TODO: add permissions to commands
 async function RegisterCommands() {
     const commands = [
         new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
         new SlashCommandBuilder().setName('intervaldel').setDescription('Deletes within a specified interval')
             .addIntegerOption(option => option
                 .setName('olderbounds')
-                .setDescription('The older (smaller number) bounds to delete within.')
+                .setDescription('The older (smaller number) timestamp bounds to delete within.')
                 .setRequired(true)
             )
             .addIntegerOption(option => option
                 .setName('youngerbounds')
-                .setDescription('The younger (larger number) bounds to delete within.')
+                .setDescription('The younger (larger number) timestamp bounds to delete within.')
                 .setRequired(true)
             )
-        ,
-        new SlashCommandBuilder().setName('delete').setDescription('Deletes old messages'),
-        new SlashCommandBuilder().setName('stop').setDescription('Stops deletion'),
+            .addChannelOption(option => option
+                .setName('channel')
+                .setDescription('Channel to delete in.')
+                .setRequired(true)
+            ),
+        new SlashCommandBuilder().setName('delete').setDescription('Deletes old messages')
+            .addChannelOption(option => option
+                .setName('channel')
+                .setDescription('Channel to delete in.')
+                .setRequired(true)
+            ),
+        new SlashCommandBuilder().setName('stop').setDescription('Stops deletion')
+            .addChannelOption(option => option
+                .setName('channel')
+                .setDescription('Channel to stop deletion in.')
+                .setRequired(true)
+            ),
         new SlashCommandBuilder().setName('shutdown').setDescription('Terminates the bot.'),
         new SlashCommandBuilder().setName('spam').setDescription("🤡"),
     ]
@@ -50,7 +63,7 @@ const timeout = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 client.once('ready', () => console.log('Ready!'));
 
 // On Interaction (interpret commands)
-let loopMessageDeletion = false;
+const loopMessageDeletion: Map<string, boolean> = new Map<string, boolean>();
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -60,31 +73,41 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply('Pong!');
     }
     else if (commandName == 'delete' || commandName == 'intervaldel') {
-        loopMessageDeletion = true;
+        // Get channel to delete in
+        const deletingChannel = interaction.options.getChannel('channel');
+        const isTextChannel = (tbd: any): tbd is TextChannel => true;
+        if (!isTextChannel(deletingChannel)) {
+            await interaction.reply(`Please insert a text channel!`);
+            return;
+        }
         const isIntervalDelete = commandName == 'intervaldel';
 
-        while (loopMessageDeletion) {
+        // Ensure that we will delete in the deleting channel
+        loopMessageDeletion.set(deletingChannel?.id ?? "", true);
+
+        // Start routine to query & delete messages every X amount of time
+        while (loopMessageDeletion.get(deletingChannel.id)) {
             // Get first message to find the rest
-            let msgPtr: Message | undefined = await interaction.channel?.messages.fetch({ limit: 1 })
+            let msgPtr: Message | undefined = await deletingChannel.messages.fetch({ limit: 1 })
                 .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
             if (msgPtr == undefined) {
                 await interaction.reply(`No messages found!`);
                 return;
             }
 
-            loopMessageDeletion = true;
+            loopMessageDeletion.set(deletingChannel.id, true);
 
             // Create a threshold to filter by
             const dateThreshold = new Date();
-            dateThreshold.setHours(dateThreshold.getHours() - 6);
+            dateThreshold.setHours(dateThreshold.getHours() - 2);//6);
             let youngerTimestampThreshold = dateThreshold.valueOf();
             let olderTimestampThreshold = 0;
 
             // Parse threshold
-            if(isIntervalDelete) {
-                youngerTimestampThreshold = interaction.options.getInteger('youngerbounds') ?? 0;
-                olderTimestampThreshold = interaction.options.getInteger('olderbounds') ?? 0;
-                if(youngerTimestampThreshold <= olderTimestampThreshold) {
+            if (isIntervalDelete) {
+                youngerTimestampThreshold = 1000 * (interaction.options.getInteger('youngerbounds') ?? 0);
+                olderTimestampThreshold = 1000 * (interaction.options.getInteger('olderbounds') ?? 0);
+                if (youngerTimestampThreshold <= olderTimestampThreshold) {
                     interaction.reply("The younger timestamp must have a higher value than the older timestamp.");
                     return;
                 }
@@ -102,8 +125,10 @@ client.on('interactionCreate', async interaction => {
 
             // Query until there are no more messages
             while (msgPtr != undefined) {
+                console.log(`Messages Found in ${deletingChannel.name}: ${oldMsgs.length}`);
+
                 const msgQuery: Collection<string, Message<boolean>> | undefined =
-                    await interaction.channel?.messages.fetch({ limit: 100, before: msgPtr.id });
+                    await deletingChannel.messages.fetch({ limit: 100, before: msgPtr.id });
                 msgQuery?.forEach(addIfTooOld);
 
                 // Update our message pointer to be last message in page of messages
@@ -111,22 +136,25 @@ client.on('interactionCreate', async interaction => {
                 else msgPtr = undefined;
             }
 
-            if(isIntervalDelete) await interaction.channel?.send(
-                    `Messages Found that were between (${olderTimestampThreshold}) and (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
+            if (isIntervalDelete) await interaction.channel?.send(
+                `Messages found that were between (${olderTimestampThreshold}) and (${youngerTimestampThreshold}) in ${deletingChannel.name}: ${oldMsgs.length}. Deleting...`);
             else
-                await interaction.channel?.send(`Messages Found that were made 6 hours ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
+                await interaction.channel?.send(
+                    `Messages found in ${deletingChannel.name} that were made 2 hours ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
 
             // Delete
+            let deleteCount = 0;
             for (const m in oldMsgs) {
-                if (!loopMessageDeletion) {
-                    await interaction.followUp(`Deletion process halted, but deletion round is unfinished.`);
+                if (!loopMessageDeletion.get(deletingChannel.id) ?? false) {
+                    await interaction.channel?.send(`Deletion process halted in ${deletingChannel.name}, but deletion round is unfinished.`);
                     return;
                 }
-                
+
                 try {
-                    await interaction.channel?.messages.delete(oldMsgs[m]);
+                    await deletingChannel.messages.delete(oldMsgs[m]);
+                    deleteCount++;
                 }
-                catch(error) {
+                catch (error) {
                     console.log("~~~~~ERROR~~~~~");
                     console.log(error);
                 }
@@ -134,19 +162,21 @@ client.on('interactionCreate', async interaction => {
 
 
             // Follow up
-            if(isIntervalDelete) {
-                await interaction.followUp(`Deletion process finished. Will NOT repeat.`);
+            if (isIntervalDelete) {
+                await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will NOT repeat.`);
                 return;
             }
-            else await interaction.followUp(`Deletion process finished. Will repeat in 5 minutes.`);
+            else await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will repeat in 5 minutes.`);
 
             // Wait for another 5 minutes
             await timeout(300000);
         }
     }
     else if (commandName == 'stop') {
-        await interaction.reply(loopMessageDeletion ? "Halting message deletion." : "No message deletion started.");
-        loopMessageDeletion = false;
+        const deletingChannel = interaction.options.getChannel('channel');
+        const channelId = deletingChannel?.id ?? "";
+        await interaction.reply(loopMessageDeletion.get(channelId) ? "Halting message deletion." : "No message deletion started.");
+        loopMessageDeletion.set(channelId, false);
     }
     else if (commandName == 'shutdown') {
         await interaction.reply("Shutting down...");
@@ -165,3 +195,8 @@ client.on('interactionCreate', async interaction => {
 });
 
 RegisterCommands();
+
+// TODO:
+// Delete in x channel, over a time period
+// Delete x days ago
+// Make sure only admins can access it
