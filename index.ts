@@ -40,6 +40,11 @@ async function RegisterCommands() {
                 .setDescription('Channel to delete in.')
                 .setRequired(true)
             )
+            .addIntegerOption(option => option
+                .setName('days')
+                .setDescription('How old messages must be before deleting them (default 30).')
+                .setRequired(false)
+            )
             .setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName('stop').setDescription('Stops deletion')
             .addChannelOption(option => option
@@ -100,12 +105,7 @@ client.on('interactionCreate', async interaction => {
             loopMessageDeletion.set(deletingChannel.id, true);
 
             // Create a threshold to filter by
-            const dateThreshold = new Date();
-            dateThreshold.setHours(dateThreshold.getHours() - 2);//6);
-            let youngerTimestampThreshold = dateThreshold.valueOf();
-            let olderTimestampThreshold = 0;
-
-            // Parse threshold
+            let olderTimestampThreshold = 0, youngerTimestampThreshold = 0, dayThreshold = 30;
             if (isIntervalDelete) {
                 youngerTimestampThreshold = 1000 * (interaction.options.getInteger('youngerbounds') ?? 0);
                 olderTimestampThreshold = 1000 * (interaction.options.getInteger('olderbounds') ?? 0);
@@ -113,6 +113,12 @@ client.on('interactionCreate', async interaction => {
                     interaction.reply("The younger timestamp must have a higher value than the older timestamp.");
                     return;
                 }
+            }
+            else {
+                const dateThreshold = new Date();
+                dayThreshold = interaction.options.getInteger('days') ?? 30;
+                dateThreshold.setHours(dateThreshold.getHours() - dayThreshold * 24);
+                youngerTimestampThreshold = dateThreshold.valueOf();
             }
 
             await interaction.reply(`Delete process started for ${deletingChannel.name}. Will begin deletion every 5 minutes.`);
@@ -142,7 +148,7 @@ client.on('interactionCreate', async interaction => {
                 `Messages found that were between (${olderTimestampThreshold}) and (${youngerTimestampThreshold}) in ${deletingChannel.name}: ${oldMsgs.length}. Deleting...`);
             else
                 await interaction.channel?.send(
-                    `Messages found in ${deletingChannel.name} that were made 2 hours ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
+                    `Messages found in ${deletingChannel.name} that were made ${dayThreshold} days ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
 
             // Delete
             let deleteCount = 0;
@@ -177,7 +183,9 @@ client.on('interactionCreate', async interaction => {
     else if (commandName == 'stop') {
         const deletingChannel = interaction.options.getChannel('channel');
         const channelId = deletingChannel?.id ?? "";
-        await interaction.reply(loopMessageDeletion.get(channelId) ? "Halting message deletion." : "No message deletion started.");
+        await interaction.reply(loopMessageDeletion.get(channelId) ? 
+            `Halting message deletion in ${deletingChannel?.name}.` : 
+            `No message deletion started in ${deletingChannel?.name}.`);
         loopMessageDeletion.set(channelId, false);
     }
     else if (commandName == 'shutdown') {
