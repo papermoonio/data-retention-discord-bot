@@ -17,7 +17,6 @@ client.login(token);
 // Commands
 async function RegisterCommands() {
     const commands = [
-        new SlashCommandBuilder().setName('ping').setDescription('Replies with pong!'),
         new SlashCommandBuilder().setName('intervaldel').setDescription('Deletes within a specified interval')
             .addIntegerOption(option => option
                 .setName('olderbounds')
@@ -33,21 +32,24 @@ async function RegisterCommands() {
                 .setName('channel')
                 .setDescription('Channel to delete in.')
                 .setRequired(true)
-            ),
+            )
+            .setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName('delete').setDescription('Deletes old messages')
             .addChannelOption(option => option
                 .setName('channel')
                 .setDescription('Channel to delete in.')
                 .setRequired(true)
-            ),
+            )
+            .setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName('stop').setDescription('Stops deletion')
             .addChannelOption(option => option
                 .setName('channel')
                 .setDescription('Channel to stop deletion in.')
                 .setRequired(true)
-            ),
-        new SlashCommandBuilder().setName('shutdown').setDescription('Terminates the bot.'),
-        new SlashCommandBuilder().setName('spam').setDescription("🤡"),
+            )
+            .setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName('shutdown').setDescription('Terminates the bot.').setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName('spam').setDescription("🤡").setDefaultMemberPermissions(0),
     ]
         .map(command => command.toJSON());
 
