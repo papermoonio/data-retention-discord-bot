@@ -1,0 +1,73 @@
+import { SlashCommandBuilder, Routes } from 'discord.js';
+import { REST } from '@discordjs/rest';
+import { token, appId, serverId } from './index';
+
+export enum COMMANDS {
+    Delete = 'delete',
+    IntervalDelete = 'intervaldel',
+    Stop = 'stop',
+    Shutdown = 'shutdown',
+    Spam = 'spam'
+}
+
+export enum OPTIONS {
+    Channel = 'channel',
+    Days = 'days',
+    OlderBounds = 'olderbounds',
+    YoungerBounds = 'youngerbounds'
+}
+
+// Commands
+export async function RegisterCommands() {
+    const commands = [
+        new SlashCommandBuilder().setName(COMMANDS.Delete)
+            .setDescription('Deletes old messages')
+            .addChannelOption(option => option
+                .setName(OPTIONS.Channel)
+                .setDescription('Channel to delete in.')
+                .setRequired(true)
+            )
+            .addIntegerOption(option => option
+                .setName(OPTIONS.Days)
+                .setDescription('How old messages must be before deleting them (default 30).')
+                .setRequired(false)
+            )
+            .setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName(COMMANDS.IntervalDelete)
+            .setDescription('Deletes within a specified interval')
+            .addIntegerOption(option => option
+                .setName(OPTIONS.OlderBounds)
+                .setDescription('The older (smaller number) timestamp bounds to delete within.')
+                .setRequired(true)
+            )
+            .addIntegerOption(option => option
+                .setName(OPTIONS.YoungerBounds)
+                .setDescription('The younger (larger number) timestamp bounds to delete within.')
+                .setRequired(true)
+            )
+            .addChannelOption(option => option
+                .setName(OPTIONS.Channel)
+                .setDescription('Channel to delete in.')
+                .setRequired(true)
+            )
+            .setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName(COMMANDS.Stop)
+            .setDescription('Stops deletion')
+            .addChannelOption(option => option
+                .setName(OPTIONS.Channel)
+                .setDescription('Channel to stop deletion in.')
+                .setRequired(true)
+            )
+            .setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName(COMMANDS.Shutdown)
+            .setDescription('Terminates the bot.').setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName(COMMANDS.Spam)
+            .setDescription("🤡").setDefaultMemberPermissions(0),
+    ]
+        .map(command => command.toJSON());
+
+    const rest = new REST({ version: '10' }).setToken(token);
+
+    await rest.put(Routes.applicationGuildCommands(appId, serverId), { body: commands });
+    console.log("Added commands.");
+}
