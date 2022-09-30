@@ -1,5 +1,6 @@
-import { Client, GatewayIntentBits, Message, Collection, TextChannel, CacheType, ChatInputCommandInteraction } from 'discord.js';
+import { Client, GatewayIntentBits, Message, Collection, TextChannel, CacheType, ChatInputCommandInteraction, TextBasedChannel } from 'discord.js';
 import * as dotenv from 'dotenv';
+import * as crypto from 'crypto';
 import { RegisterCommands, COMMANDS, OPTIONS } from './RegisterCommands';
 
 // Get data from environment variables
@@ -36,11 +37,14 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
+const DELETE_ROUTINE_WAITING_PERIOD = 5000;// 300000;
+
 /**
  * Begins a delete routine
  * @param commandName delete or intervalDel
  */
 async function Delete(interaction: ChatInputCommandInteraction<CacheType>, commandName: string) {
+
     // Get channel to delete in
     const deletingChannel = interaction.options.getChannel(OPTIONS.Channel);
     const isTextChannel = (tbd: any): tbd is TextChannel => (tbd as TextChannel).messages !== undefined;
@@ -51,19 +55,21 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
     const isIntervalDelete = commandName == COMMANDS.IntervalDelete;
 
     // Ensure that we will delete in the deleting channel
-    activeDeleteRoutines.set(deletingChannel?.id ?? "", true);
+    const routineId = addDeleteRoutine(deletingChannel);
+    await interaction.reply(`Delete process activated for ${deletingChannel.name}. Will begin deletion every 5 minutes.`);
 
     // Start routine to query & delete messages every X amount of time
-    while (activeDeleteRoutines.get(deletingChannel.id)) {
+    while (routineIsActive(routineId)) {
         // Get first message to find the rest
         let msgPtr: Message | undefined = await deletingChannel.messages.fetch({ limit: 1 })
             .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
         if (msgPtr == undefined) {
-            await interaction.reply(`No messages found!`);
-            return;
-        }
+            await interaction.channel?.send(`No messages found! No messages deleted.`);
 
-        activeDeleteRoutines.set(deletingChannel.id, true);
+            // Wait for another 5 minutes
+            await timeout(DELETE_ROUTINE_WAITING_PERIOD);
+            continue;
+        }
 
         // Create a threshold to filter by
         let olderTimestampThreshold = 0, youngerTimestampThreshold = 0, dayThreshold = 30;
@@ -71,7 +77,8 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             youngerTimestampThreshold = 1000 * (interaction.options.getInteger(OPTIONS.YoungerBounds) ?? 0);
             olderTimestampThreshold = 1000 * (interaction.options.getInteger(OPTIONS.OlderBounds) ?? 0);
             if (youngerTimestampThreshold <= olderTimestampThreshold) {
-                interaction.reply("The younger timestamp must have a higher value than the older timestamp.");
+                interaction.channel?.send(
+                    "The younger timestamp must have a higher value than the older timestamp. Try sending the command again with different parameters.");
                 return;
             }
         }
@@ -81,8 +88,6 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             dateThreshold.setHours(dateThreshold.getHours() - dayThreshold * 24);
             youngerTimestampThreshold = dateThreshold.valueOf();
         }
-
-        await interaction.reply(`Delete process started for ${deletingChannel.name}. Will begin deletion every 5 minutes.`);
 
         // Build old message collection to hold query responses
         const oldMsgs: Message[] = [];
@@ -94,6 +99,10 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
 
         // Query until there are no more messages
         while (msgPtr != undefined) {
+            if (!routineIsActive(routineId)) {
+                await interaction.channel?.send(`Deletion process halted in ${deletingChannel.name}, but deletion round is unfinished.`);
+                return;
+            }
             console.log(`Messages Found in ${deletingChannel.name}: ${oldMsgs.length}`);
 
             const msgQuery: Collection<string, Message<boolean>> | undefined =
@@ -105,8 +114,9 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             else msgPtr = undefined;
         }
 
-        if (isIntervalDelete) await interaction.channel?.send(
-            `Messages found that were between (${olderTimestampThreshold}) and (${youngerTimestampThreshold}) in ${deletingChannel.name}: ${oldMsgs.length}. Deleting...`);
+        if (isIntervalDelete)
+            await interaction.channel?.send(
+                `Messages found that were between (${olderTimestampThreshold}) and (${youngerTimestampThreshold}) in ${deletingChannel.name}: ${oldMsgs.length}. Deleting...`);
         else
             await interaction.channel?.send(
                 `Messages found in ${deletingChannel.name} that were made ${dayThreshold} days ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
@@ -114,7 +124,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         // Delete
         let deleteCount = 0;
         for (const m in oldMsgs) {
-            if (!activeDeleteRoutines.get(deletingChannel.id) ?? false) {
+            if (!routineIsActive(routineId)) {
                 await interaction.channel?.send(`Deletion process halted in ${deletingChannel.name}, but deletion round is unfinished.`);
                 return;
             }
@@ -138,11 +148,25 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         else await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will repeat in 5 minutes.`);
 
         // Wait for another 5 minutes
-        await timeout(300000);
+        await timeout(DELETE_ROUTINE_WAITING_PERIOD);
     }
 }
-const activeDeleteRoutines: Map<string, boolean> = new Map<string, boolean>();
+// someone can stop then turn back on, need to fixs
+type DeleteRoutine = {
+    id: string,
+    channelId: string
+}
+let activeDeleteRoutines: DeleteRoutine[] = [];
+const routineIsActive = (routineId: string) => activeDeleteRoutines.some(r => r.id == routineId);
 const timeout = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+function addDeleteRoutine(deletingChannel: TextChannel): string {
+    const deleteRoutineId = crypto.randomUUID();
+    activeDeleteRoutines.push({
+        id: deleteRoutineId,
+        channelId: deletingChannel.id
+    });
+    return deleteRoutineId;
+}
 
 /**
  * Shuts down the instance of the discord client.
@@ -152,16 +176,18 @@ async function Shutdown(interaction: ChatInputCommandInteraction<CacheType>) {
     client.destroy();
 }
 
+
 /**
  * Signals a deletion routine to stop.
  */
 async function StopDeletion(interaction: ChatInputCommandInteraction<CacheType>) {
     const deletingChannel = interaction.options.getChannel(OPTIONS.Channel);
     const channelId = deletingChannel?.id ?? "";
-    await interaction.reply(activeDeleteRoutines.get(channelId) ?
-        `Halting message deletion in ${deletingChannel?.name}.` :
-        `No message deletion started in ${deletingChannel?.name}.`);
-    activeDeleteRoutines.set(channelId, false);
+    const removedRoutines = activeDeleteRoutines.filter(x => x.channelId != channelId);
+    const numRemoved = activeDeleteRoutines.length - removedRoutines.length;
+    activeDeleteRoutines = removedRoutines;
+
+    await interaction.reply(`Halting ${numRemoved} message deletion routines in ${deletingChannel?.name}.`);
 }
 
 /**
