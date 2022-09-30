@@ -37,7 +37,8 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-const DELETE_ROUTINE_WAITING_PERIOD = 5000;// 300000;
+const DELETE_ROUTINE_INTERVAL_PERIOD = 6 * 60 * 60 * 1000;
+const DELETE_ROUTINE_INTERVAL_TEXT = "6 hours";
 
 /**
  * Begins a delete routine
@@ -56,7 +57,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
 
     // Ensure that we will delete in the deleting channel
     const routineId = addDeleteRoutine(deletingChannel);
-    await interaction.reply(`Delete process activated for ${deletingChannel.name}. Will begin deletion every 5 minutes.`);
+    await interaction.reply(`Delete process activated for ${deletingChannel.name}. Will begin deletion every ${DELETE_ROUTINE_INTERVAL_TEXT}.`);
 
     // Start routine to query & delete messages every X amount of time
     while (routineIsActive(routineId)) {
@@ -66,8 +67,8 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         if (msgPtr == undefined) {
             await interaction.channel?.send(`No messages found! No messages deleted.`);
 
-            // Wait for another 5 minutes
-            await timeout(DELETE_ROUTINE_WAITING_PERIOD);
+            // Wait for the interval
+            await timeout(DELETE_ROUTINE_INTERVAL_PERIOD);
             continue;
         }
 
@@ -103,7 +104,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
                 await interaction.channel?.send(`Deletion process halted in ${deletingChannel.name}, but deletion round is unfinished.`);
                 return;
             }
-            console.log(`Messages Found in ${deletingChannel.name}: ${oldMsgs.length}`);
+            console.log(`${routineId}: Messages Found in ${deletingChannel.name}: ${oldMsgs.length}`);
 
             const msgQuery: Collection<string, Message<boolean>> | undefined =
                 await deletingChannel.messages.fetch({ limit: 100, before: msgPtr.id });
@@ -145,13 +146,13 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will NOT repeat.`);
             return;
         }
-        else await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will repeat in 5 minutes.`);
+        else await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will repeat in ${DELETE_ROUTINE_INTERVAL_TEXT}.`);
 
         // Wait for another 5 minutes
-        await timeout(DELETE_ROUTINE_WAITING_PERIOD);
+        await timeout(DELETE_ROUTINE_INTERVAL_PERIOD);
     }
 }
-// someone can stop then turn back on, need to fixs
+
 type DeleteRoutine = {
     id: string,
     channelId: string
