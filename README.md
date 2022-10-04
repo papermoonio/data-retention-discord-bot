@@ -1,4 +1,7 @@
 # Data Retention Discord Bot
+```
+npm run start
+```
 
 ## Environment Variables
 These are the following environment variables:
