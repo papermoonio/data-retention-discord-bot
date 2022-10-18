@@ -93,6 +93,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         // Build old message collection to hold query responses
         const oldMsgs: Message[] = [];
         const addIfTooOld = (msg: Message) => {
+            console.log(olderTimestampThreshold, youngerTimestampThreshold, msg.createdTimestamp);
             if (olderTimestampThreshold < msg.createdTimestamp && msg.createdTimestamp < youngerTimestampThreshold)
                 oldMsgs.push(msg);
         };
@@ -117,7 +118,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
 
         if (isIntervalDelete)
             await interaction.channel?.send(
-                `Messages found that were between (${olderTimestampThreshold}) and (${youngerTimestampThreshold}) in ${deletingChannel.name}: ${oldMsgs.length}. Deleting...`);
+                `Messages found that were between (${olderTimestampThreshold / 1000}) and (${youngerTimestampThreshold / 1000}) in ${deletingChannel.name}: ${oldMsgs.length}. Deleting...`);
         else
             await interaction.channel?.send(
                 `Messages found in ${deletingChannel.name} that were made ${dayThreshold} days ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
@@ -202,3 +203,6 @@ async function SpamEmojis(interaction: ChatInputCommandInteraction<CacheType>) {
         await timeout(800);
     }
 }
+
+// 1666134052
+// 1666134299
