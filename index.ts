@@ -43,8 +43,8 @@ const DELETE_ROUTINE_INTERVAL_TEXT = "6 hours";
 
 async function hasRequiredRole(interaction: ChatInputCommandInteraction<CacheType>): Promise<boolean> {
     const member = await interaction.guild?.members.fetch(interaction.user.id);
-    const hasRole = !member?.roles.cache.some(role => role.id === SERVER_ROLE) ?? false
-    if(hasRole) {
+    const hasRole = member?.roles.cache.some(role => role.id === SERVER_ROLE) ?? false
+    if(!hasRole) {
         await interaction.reply(`User doesn't have necessary permissions.`);
     }
     return hasRole;
