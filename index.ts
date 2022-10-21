@@ -135,6 +135,9 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             await interaction.channel?.send(
                 `Messages found in ${deletingChannel.name} that were made ${dayThreshold} days ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
 
+        // Flip messages because it makes Alberto smile
+        oldMsgs.reverse();
+
         // Delete
         let deleteCount = 0;
         for (const m in oldMsgs) {
@@ -152,7 +155,6 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
                 console.log(error);
             }
         }
-
 
         // Follow up
         if (isIntervalDelete) {
