@@ -5,6 +5,7 @@ import { token, appId, serverId } from './index';
 export enum COMMANDS {
     Delete = 'delete',
     IntervalDelete = 'intervaldel',
+    List = 'list',
     Stop = 'stop',
     Shutdown = 'shutdown',
     Spam = 'spam'
@@ -31,8 +32,8 @@ export async function RegisterCommands() {
                 .setName(OPTIONS.Days)
                 .setDescription('How old messages must be before deleting them (default 30).')
                 .setRequired(false)
-            ),
-            //.setDefaultMemberPermissions(0),
+            )
+            .setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName(COMMANDS.IntervalDelete)
             .setDescription('Deletes within a specified interval')
             .addIntegerOption(option => option
@@ -49,20 +50,23 @@ export async function RegisterCommands() {
                 .setName(OPTIONS.Channel)
                 .setDescription('Channel to delete in.')
                 .setRequired(true)
-            ),
-            //.setDefaultMemberPermissions(0),
+            )
+            .setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName(COMMANDS.List)
+            .setDescription("Lists all active deletion routines.")
+            .setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName(COMMANDS.Stop)
             .setDescription('Stops deletion')
             .addChannelOption(option => option
                 .setName(OPTIONS.Channel)
                 .setDescription('Channel to stop deletion in.')
                 .setRequired(true)
-            ),
-            //.setDefaultMemberPermissions(0),
+            )
+            .setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName(COMMANDS.Shutdown)
-            .setDescription('Terminates the bot.'),//.setDefaultMemberPermissions(0),
+            .setDescription('Terminates the bot.').setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName(COMMANDS.Spam)
-            .setDescription("🤡")//.setDefaultMemberPermissions(0),
+            .setDescription("🤡").setDefaultMemberPermissions(0),
     ]
         .map(command => command.toJSON());
 

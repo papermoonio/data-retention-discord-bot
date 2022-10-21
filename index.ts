@@ -29,6 +29,8 @@ client.on('interactionCreate', async interaction => {
         case COMMANDS.Delete:
         case COMMANDS.IntervalDelete:
             await Delete(interaction, commandName); break;
+        case COMMANDS.List:
+            await List(interaction); break;
         case COMMANDS.Stop:
             await StopDeletion(interaction); break;
         case COMMANDS.Shutdown: { }
@@ -67,7 +69,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
     const isIntervalDelete = commandName == COMMANDS.IntervalDelete;
 
     // Ensure that we will delete in the deleting channel
-    const routineId = addDeleteRoutine(deletingChannel);
+    const routineId = addDeleteRoutine(deletingChannel, isIntervalDelete ? -1 : interaction.options.getInteger(OPTIONS.Days) ?? 30);
     await interaction.reply(`Delete process activated for ${deletingChannel.name}. Will begin deletion every ${DELETE_ROUTINE_INTERVAL_TEXT}.`);
 
     // Start routine to query & delete messages every X amount of time
@@ -155,6 +157,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         // Follow up
         if (isIntervalDelete) {
             await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will NOT repeat.`);
+            activeDeleteRoutines = activeDeleteRoutines.filter(x => x.id != routineId);
             return;
         }
         else await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will repeat in ${DELETE_ROUTINE_INTERVAL_TEXT}.`);
@@ -166,16 +169,18 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
 
 type DeleteRoutine = {
     id: string,
-    channelId: string
+    channelId: string,
+    days: number
 }
 let activeDeleteRoutines: DeleteRoutine[] = [];
 const routineIsActive = (routineId: string) => activeDeleteRoutines.some(r => r.id == routineId);
 const timeout = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-function addDeleteRoutine(deletingChannel: TextChannel): string {
+function addDeleteRoutine(deletingChannel: TextChannel, days: number): string {
     const deleteRoutineId = crypto.randomUUID();
     activeDeleteRoutines.push({
         id: deleteRoutineId,
-        channelId: deletingChannel.id
+        channelId: deletingChannel.id,
+        days
     });
     return deleteRoutineId;
 }
@@ -220,5 +225,14 @@ async function SpamEmojis(interaction: ChatInputCommandInteraction<CacheType>) {
     }
 }
 
-// 1666134052
-// 1666134299
+/**
+ * Lists all of the current deletion routines.
+ */
+async function List(interaction: ChatInputCommandInteraction<CacheType>) {
+    let message = "";
+    activeDeleteRoutines.forEach(async x => {
+        const channel = await interaction.guild?.channels.fetch(x.channelId);
+        message += `${x.id}: ${x.days} days old messages in #${channel?.name} are being deleted`
+    });
+    await interaction.reply(message);
+}
