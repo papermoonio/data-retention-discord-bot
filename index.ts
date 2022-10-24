@@ -24,6 +24,10 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName } = interaction;
 
+    // Required role & channel check
+    if(!await hasRequiredRole(interaction)) return;
+    if(!inRequiredChannel(interaction)) return;
+
     // Delete command
     switch (commandName) {
         case COMMANDS.Delete:
@@ -52,12 +56,17 @@ async function hasRequiredRole(interaction: ChatInputCommandInteraction<CacheTyp
     return hasRole;
 }
 
+function inRequiredChannel(interaction: ChatInputCommandInteraction<CacheType>): boolean {
+    const channel = interaction.channelId;
+    const requiredChannel = process.env.SERVER_CHANNEL;
+    return requiredChannel == null || requiredChannel == "0" || requiredChannel == channel;
+}
+
 /**
  * Begins a delete routine
  * @param commandName delete or intervalDel
  */
 async function Delete(interaction: ChatInputCommandInteraction<CacheType>, commandName: string) {
-    if(!await hasRequiredRole(interaction)) return;
 
     // Get channel to delete in
     const deletingChannel = interaction.options.getChannel(OPTIONS.Channel);
