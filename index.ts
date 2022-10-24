@@ -26,7 +26,7 @@ client.on('interactionCreate', async interaction => {
 
     // Required role & channel check
     if(!await hasRequiredRole(interaction)) return;
-    if(!inRequiredChannel(interaction)) return;
+    if(!await inRequiredChannel(interaction)) return;
 
     // Delete command
     switch (commandName) {
@@ -37,9 +37,9 @@ client.on('interactionCreate', async interaction => {
             await List(interaction); break;
         case COMMANDS.Stop:
             await StopDeletion(interaction); break;
-        case COMMANDS.Shutdown: { }
+        case COMMANDS.Shutdown:
             await Shutdown(interaction); break;
-        case COMMANDS.Spam: { }
+        case COMMANDS.Spam:
             await SpamEmojis(interaction); break;
     }
 });
@@ -51,15 +51,19 @@ async function hasRequiredRole(interaction: ChatInputCommandInteraction<CacheTyp
     const member = await interaction.guild?.members.fetch(interaction.user.id);
     const hasRole = member?.roles.cache.some(role => role.id === SERVER_ROLE) ?? false
     if(!hasRole) {
-        await interaction.reply(`User doesn't have necessary permissions.`);
+        await interaction.reply({ content: `Sorry! You don't have the right role.`, ephemeral: true });
     }
     return hasRole;
 }
 
-function inRequiredChannel(interaction: ChatInputCommandInteraction<CacheType>): boolean {
+async function inRequiredChannel(interaction: ChatInputCommandInteraction<CacheType>): Promise<boolean> {
     const channel = interaction.channelId;
     const requiredChannel = process.env.SERVER_CHANNEL;
-    return requiredChannel == null || requiredChannel == "0" || requiredChannel == channel;
+    const inChannel = requiredChannel == null || requiredChannel == "0" || requiredChannel == channel;
+    if(!inChannel) {
+        await interaction.reply({ content: `Sorry! You're not in the right channel.`, ephemeral: true });
+    }
+    return inChannel;
 }
 
 /**
