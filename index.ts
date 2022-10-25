@@ -244,10 +244,10 @@ async function SpamEmojis(interaction: ChatInputCommandInteraction<CacheType>) {
  * Lists all of the current deletion routines.
  */
 async function List(interaction: ChatInputCommandInteraction<CacheType>) {
-    let message = "";
-    activeDeleteRoutines.forEach(async x => {
-        const channel = await interaction.guild?.channels.fetch(x.channelId);
-        message += `${x.id}: ${x.days} days old messages in #${channel?.name} are being deleted`
-    });
+    let message = "Active Deletion Routines:\n";
+    for(const routine of activeDeleteRoutines) {
+        const channel = await interaction.guild?.channels.fetch(routine.channelId);
+        message += `${routine.id}: ${routine.days} days old messages in #${channel?.name} are being deleted.\n`;
+    }
     await interaction.reply(message);
 }
