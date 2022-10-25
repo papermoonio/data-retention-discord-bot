@@ -247,7 +247,10 @@ async function List(interaction: ChatInputCommandInteraction<CacheType>) {
     let message = "Active Deletion Routines:\n";
     for(const routine of activeDeleteRoutines) {
         const channel = await interaction.guild?.channels.fetch(routine.channelId);
-        message += `${routine.id}: ${routine.days} days old messages in #${channel?.name} are being deleted.\n`;
+        if(routine.days < 0) {
+            message += `${routine.id}: An interval deletion routine in #${channel?.name} is running.\n`;
+        }
+        else message += `${routine.id}: ${routine.days} days old messages in #${channel?.name} are being deleted.\n`;
     }
     await interaction.reply(message);
 }
