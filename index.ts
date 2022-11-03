@@ -94,8 +94,10 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         let msgPtr: Message | undefined = await deletingChannel.messages.fetch({ limit: 1 })
             .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
         if (msgPtr == undefined) {
-            // Wait for the interval
+            // Wait for the interval, there might be more messages afterwards
             routineRef.status = 'Waiting';
+            routineRef.routines++;
+            
             await timeout(DELETE_ROUTINE_INTERVAL_PERIOD);
             continue;
         }
