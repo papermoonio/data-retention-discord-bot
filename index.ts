@@ -86,7 +86,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
     // Ensure that we will delete in the deleting channel
     const routineRef = addDeleteRoutine(deletingChannel, isIntervalDelete ? -1 : interaction.options.getInteger(OPTIONS.Days) ?? 30);
     await interaction.reply(
-        `Delete process activated for ${deletingChannel.name}. Will begin deletion every ${DELETE_ROUTINE_INTERVAL_TEXT}. Use /list to see status.`);
+        `Delete process activated for ${deletingChannel.name}. Will begin deletion every ${DELETE_ROUTINE_INTERVAL_TEXT}. Use ` + '`/list` to see status.');
 
     // Start routine to query & delete messages every X amount of time
     while (routineIsActive(routineRef.id)) {
@@ -171,11 +171,9 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
 
         // Follow up
         if (isIntervalDelete) {
-            // await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will NOT repeat.`);
             activeDeleteRoutines = activeDeleteRoutines.filter(x => x.id != routineRef.id);
             return;
         }
-        // else await interaction.channel?.send(`Deletion process finished. Successfully deleted ${deleteCount} in ${deletingChannel.name}. Will repeat in ${DELETE_ROUTINE_INTERVAL_TEXT}.`);
         routineRef.routines++;
         routineRef.status = 'Waiting';
 
