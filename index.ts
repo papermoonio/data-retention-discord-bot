@@ -221,6 +221,7 @@ async function Shutdown(interaction: ChatInputCommandInteraction<CacheType>) {
 
     await interaction.reply("Shutting down...");
     client.destroy();
+    process.exit(0);
 }
 
 
