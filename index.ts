@@ -9,6 +9,8 @@ export const token = process.env.DISCORD_TOKEN as string;
 export const appId = process.env.APPLICATION_ID as string;
 export const serverId = process.env.SERVER_ID as string;
 const SERVER_ROLE = process.env.SERVER_ROLE as string;
+const QUERY_THROTTLE = 1000;
+const DELETE_THROTTLE = 1000;
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
@@ -92,9 +94,8 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         let msgPtr: Message | undefined = await deletingChannel.messages.fetch({ limit: 1 })
             .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
         if (msgPtr == undefined) {
-            await interaction.channel?.send(`No messages found! No messages deleted.`);
-
             // Wait for the interval
+            routineRef.status = 'Waiting';
             await timeout(DELETE_ROUTINE_INTERVAL_PERIOD);
             continue;
         }
@@ -127,10 +128,8 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
 
         // Query until there are no more messages
         while (msgPtr != undefined) {
-            if (!routineIsActive(routineRef.id)) {
-                // await interaction.channel?.send(`Deletion process halted in ${deletingChannel.name}, but deletion round is unfinished.`);
-                return;
-            }
+            if (!routineIsActive(routineRef.id)) return;
+
             console.log(`${routineRef.id}: Messages Found in ${deletingChannel.name}: ${oldMsgs.length}`);
             routineRef.status = `Querying (${oldMsgs.length})`;
 
@@ -141,32 +140,28 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             // Update our message pointer to be last message in page of messages
             if (msgQuery) msgPtr = 0 < msgQuery.size ? msgQuery.at(msgQuery.size - 1) : undefined;
             else msgPtr = undefined;
-        }
 
-        // if (isIntervalDelete)
-        //     await interaction.channel?.send(
-        //         `Messages found that were between (${olderTimestampThreshold / 1000}) and (${youngerTimestampThreshold / 1000}) in ${deletingChannel.name}: ${oldMsgs.length}. Deleting...`);
-        // else
-        //     await interaction.channel?.send(
-        //         `Messages found in ${deletingChannel.name} that were made ${dayThreshold} days ago (${youngerTimestampThreshold}): ${oldMsgs.length}. Deleting...`);
+            // Manual throttle as requested
+            await timeout(QUERY_THROTTLE);
+        }
 
         // Flip messages because it makes Alberto smile
         oldMsgs.reverse();
 
-        // Deletex
+        // Delete
         routineRef.status = `Deleting (0/${oldMsgs.length})`;
         let deleteCount = 0;
         for (const m in oldMsgs) {
-            if (!routineIsActive(routineRef.id)) {
-                // await interaction.channel?.send(`Deletion process halted in ${deletingChannel.name}, but deletion round is unfinished.`);
-                return;
-            }
+            if (!routineIsActive(routineRef.id)) return;
 
             try {
                 await deletingChannel.messages.delete(oldMsgs[m]);
                 deleteCount++;
                 routineRef.status = `Deleting (${deleteCount}/${oldMsgs.length})`;
                 routineRef.deleted++;
+                
+                // Manual throttle as requested
+                await timeout(DELETE_THROTTLE);
             }
             catch (error) {
                 console.log("~~~~~ERROR~~~~~");
