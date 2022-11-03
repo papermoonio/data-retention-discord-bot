@@ -68,6 +68,19 @@ async function inRequiredChannel(interaction: ChatInputCommandInteraction<CacheT
     return inChannel;
 }
 
+function estDelTime(numMsgs: number): string {
+    const seconds = numMsgs * (DELETE_THROTTLE / 1000 + 0.2); // Estimation
+    if(seconds < 60) return `~${Math.floor(seconds)}s`;
+    else {
+        const minutes = seconds / 60;
+        if(minutes < 60) return `~${Math.floor(minutes)}m`;
+        else {
+            const hours = minutes / 60;
+            return `~${Math.floor(hours)}h`;
+        }
+    }
+}
+
 /**
  * Begins a delete routine
  * @param commandName delete or intervalDel
@@ -151,7 +164,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         oldMsgs.reverse();
 
         // Delete
-        routineRef.status = `Deleting (0/${oldMsgs.length})`;
+        routineRef.status = `Deleting ${estDelTime(oldMsgs.length)} (0/${oldMsgs.length})`;
         let deleteCount = 0;
         for (const m in oldMsgs) {
             if (!routineIsActive(routineRef.id)) return;
@@ -159,7 +172,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             try {
                 await deletingChannel.messages.delete(oldMsgs[m]);
                 deleteCount++;
-                routineRef.status = `Deleting (${deleteCount}/${oldMsgs.length})`;
+                routineRef.status = `Deleting ${estDelTime(oldMsgs.length)} (${deleteCount}/${oldMsgs.length})`;
                 routineRef.deleted++;
                 
                 // Manual throttle as requested
@@ -258,12 +271,12 @@ const lFrmt = (text: string, maxLength: number): string => text.concat("        
  * Lists all of the current deletion routines.
  */
 async function List(interaction: ChatInputCommandInteraction<CacheType>) {
-    let message = "=============================== Active Deletion Routines: ===============================\n```\n";
-    message += "ID      | Channel           | Status                   | Deleted  | Routines | Params \n";
-    message += "==========================================================================================\n"
+    let message = "================================= Active Deletion Routines: ===============================\n```\n";
+    message += "ID      | Channel           | Status                        | Deleted  | Routines | Params \n";
+    message += "===============================================================================================\n"
     for (const routine of activeDeleteRoutines) {
         const channel = await interaction.guild?.channels.fetch(routine.channelId);
-        message += `${lFrmt(routine.id, 7)} | #${lFrmt(channel?.name ?? "", 16)} | ${lFrmt(routine.status, 24)} | ${lFrmt(routine.deleted.toString(), 8)} | ${lFrmt(routine.routines.toString(), 8)} | `;
+        message += `${lFrmt(routine.id, 7)} | #${lFrmt(channel?.name ?? "", 16)} | ${lFrmt(routine.status, 29)} | ${lFrmt(routine.deleted.toString(), 8)} | ${lFrmt(routine.routines.toString(), 8)} | `;
 
         if (routine.days < 0) message += `Interval`;
         else message += `${routine.days} Days Old`;
