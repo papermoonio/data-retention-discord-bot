@@ -30,8 +30,8 @@ export async function RegisterCommands() {
             )
             .addIntegerOption(option => option
                 .setName(OPTIONS.Days)
-                .setDescription('How old messages must be before deleting them (default 30).')
-                .setRequired(false)
+                .setDescription('How old messages must be before deleting them.')
+                .setRequired(true)
             )
             .setDefaultMemberPermissions(0),
         new SlashCommandBuilder().setName(COMMANDS.IntervalDelete)

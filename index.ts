@@ -18,7 +18,7 @@ client.login(token);
 RegisterCommands();
 
 // On Start
-client.once('ready', () => console.log('Ready!'));
+client.once('ready', () => console.log('Data Terminator ready!'));
 
 // On Interaction (interpret commands)
 client.on('interactionCreate', async interaction => {
@@ -70,10 +70,10 @@ async function inRequiredChannel(interaction: ChatInputCommandInteraction<CacheT
 
 function estDelTime(numMsgs: number): string {
     const seconds = numMsgs * (DELETE_THROTTLE / 1000 + 0.2); // Estimation
-    if(seconds < 60) return `~${Math.floor(seconds)}s`;
+    if (seconds < 60) return `~${Math.floor(seconds)}s`;
     else {
         const minutes = seconds / 60;
-        if(minutes < 60) return `~${Math.floor(minutes)}m`;
+        if (minutes < 60) return `~${Math.floor(minutes)}m`;
         else {
             const hours = minutes / 60;
             return `~${Math.floor(hours)}h`;
@@ -100,18 +100,22 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
     const routineRef = addDeleteRoutine(deletingChannel, isIntervalDelete ? -1 : interaction.options.getInteger(OPTIONS.Days) ?? 30);
     await interaction.reply(
         `Delete process activated for ${deletingChannel.name}. Will begin deletion every ${DELETE_ROUTINE_INTERVAL_TEXT}. Use ` + '`/list` to see status.');
+    console.log(`${routineRef.id}: ${interaction.user.username} started a routine to delete messages in ${deletingChannel.name}`);
 
     // Start routine to query & delete messages every X amount of time
     while (routineIsActive(routineRef.id)) {
         // Get first message to find the rest
-        let msgPtr: Message | undefined = await deletingChannel.messages.fetch({ limit: 1 })
-            .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
+        let msgPtr: Message | undefined;
+        try {
+            msgPtr = await deletingChannel.messages.fetch({ limit: 1 })
+                .then(messagePage => (messagePage.size === 1 ? messagePage.at(0) : undefined));
+        }
+        catch (error) {
+            return await TerminateOnQueryResponse(error);
+        }
         if (msgPtr == undefined) {
             // Wait for the interval, there might be more messages afterwards
-            routineRef.status = 'Waiting';
-            routineRef.routines++;
-            
-            await timeout(DELETE_ROUTINE_INTERVAL_PERIOD);
+            await EnterIntervalWaitStatus();
             continue;
         }
 
@@ -142,23 +146,29 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         addIfTooOld(msgPtr);
 
         // Query until there are no more messages
-        while (msgPtr != undefined) {
-            if (!routineIsActive(routineRef.id)) return;
+        console.log(`${routineRef.id}: Starting to query messages in ${deletingChannel.name}`);
+        try {
+            while (msgPtr != undefined) {
+                if (!routineIsActive(routineRef.id)) return;
 
-            console.log(`${routineRef.id}: Messages Found in ${deletingChannel.name}: ${oldMsgs.length}`);
-            routineRef.status = `Querying (${oldMsgs.length})`;
+                routineRef.status = `Querying (${oldMsgs.length})`;
 
-            const msgQuery: Collection<string, Message<boolean>> | undefined =
-                await deletingChannel.messages.fetch({ limit: 100, before: msgPtr.id });
-            msgQuery?.forEach(addIfTooOld);
+                const msgQuery: Collection<string, Message<boolean>> | undefined =
+                    await deletingChannel.messages.fetch({ limit: 100, before: msgPtr.id });
+                msgQuery?.forEach(addIfTooOld);
 
-            // Update our message pointer to be last message in page of messages
-            if (msgQuery) msgPtr = 0 < msgQuery.size ? msgQuery.at(msgQuery.size - 1) : undefined;
-            else msgPtr = undefined;
+                // Update our message pointer to be last message in page of messages
+                if (msgQuery) msgPtr = 0 < msgQuery.size ? msgQuery.at(msgQuery.size - 1) : undefined;
+                else msgPtr = undefined;
 
-            // Manual throttle as requested
-            await timeout(QUERY_THROTTLE);
+                // Manual throttle as requested
+                await timeout(QUERY_THROTTLE);
+            }
         }
+        catch (error) {
+            return await TerminateOnQueryResponse(error);
+        }
+        console.log(`${routineRef.id}: Messages found in ${deletingChannel.name}: ${oldMsgs.length}. Starting deletion routine.`);
 
         // Flip messages because it makes Alberto smile
         oldMsgs.reverse();
@@ -174,26 +184,45 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
                 deleteCount++;
                 routineRef.status = `Deleting ${estDelTime(oldMsgs.length)} (${deleteCount}/${oldMsgs.length})`;
                 routineRef.deleted++;
-                
+
                 // Manual throttle as requested
                 await timeout(DELETE_THROTTLE);
             }
             catch (error) {
-                console.log("~~~~~ERROR~~~~~");
+                if (error instanceof Error && error.toString().includes('Missing Permissions')) {
+                    await interaction.channel?.send(`This bot is missing the permissions to delete in ${deletingChannel.name}. Will skip this deletion round.`);
+                    break;
+                }
+
+                console.log(`${routineRef.id}: ERROR in ${deletingChannel.name} deletion:`);
                 console.log(error);
             }
         }
+        console.log(`${routineRef.id}: Deletion routine finished in ${deletingChannel.name}. Deleted ${deleteCount} messages. Entering 'Waiting' state.`);
 
         // Follow up
         if (isIntervalDelete) {
             activeDeleteRoutines = activeDeleteRoutines.filter(x => x.id != routineRef.id);
             return;
         }
-        routineRef.routines++;
-        routineRef.status = 'Waiting';
+        await EnterIntervalWaitStatus();
+    }
 
-        // Wait for a while
+    async function EnterIntervalWaitStatus() {
+        routineRef.status = 'Waiting';
+        routineRef.routines++;
         await timeout(DELETE_ROUTINE_INTERVAL_PERIOD);
+    }
+
+    async function TerminateOnQueryResponse(error: any) {
+        await interaction.channel?.send(
+            `This bot encountered an error while querying messages in ${deletingChannel?.name}. Terminating this routine. Please look at the logs for more details.`);
+
+        console.log(`${routineRef.id}: ERROR in ${deletingChannel?.name} querying:`);
+        console.log(error);
+
+        activeDeleteRoutines = activeDeleteRoutines.filter(x => x.id != routineRef.id);
+        return;
     }
 }
 
