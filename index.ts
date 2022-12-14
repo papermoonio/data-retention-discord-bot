@@ -18,7 +18,25 @@ client.login(token);
 RegisterCommands();
 
 // On Start
-client.once('ready', () => console.log('Data Terminator ready!'));
+client.once('ready', async () => { 
+    console.log('Data Terminator ready! Beginning default deletion routines.');
+
+    const ids = process.env.DEFAULT_DELETION?.split(',');
+    if(ids != undefined) {
+        const server = await client.guilds.fetch(serverId);
+
+        for(const channelId of ids) {
+            try {
+                const deletingChannel = (await server.channels.fetch(channelId));
+                if(deletingChannel?.isTextBased()) {
+                    const routineRef = addDeleteRoutine(deletingChannel as TextChannel, 30);
+                    DeleteProcess(deletingChannel as TextChannel, routineRef, false);
+                }
+            }
+            catch {}
+        }
+    }
+});
 
 // On Interaction (interpret commands)
 client.on('interactionCreate', async interaction => {
@@ -101,8 +119,10 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
     await interaction.reply(
         `Delete process activated for ${deletingChannel.name}. Will begin deletion every ${DELETE_ROUTINE_INTERVAL_TEXT}. Use ` + '`/list` to see status.');
     console.log(`${routineRef.id}: ${interaction.user.username} started a routine to delete messages in ${deletingChannel.name}`);
+    await DeleteProcess(deletingChannel, routineRef, isIntervalDelete, interaction);
+}
 
-    // Start routine to query & delete messages every X amount of time
+async function DeleteProcess(deletingChannel: TextChannel, routineRef: DeleteRoutine, isIntervalDelete: boolean, interaction?: ChatInputCommandInteraction<CacheType>) {
     while (routineIsActive(routineRef.id)) {
         // Get first message to find the rest
         let msgPtr: Message | undefined;
@@ -122,17 +142,17 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
         // Create a threshold to filter by
         let olderTimestampThreshold = 0, youngerTimestampThreshold = 0, dayThreshold = 30;
         if (isIntervalDelete) {
-            youngerTimestampThreshold = 1000 * (interaction.options.getInteger(OPTIONS.YoungerBounds) ?? 0);
-            olderTimestampThreshold = 1000 * (interaction.options.getInteger(OPTIONS.OlderBounds) ?? 0);
+            youngerTimestampThreshold = 1000 * (interaction?.options.getInteger(OPTIONS.YoungerBounds) ?? 0);
+            olderTimestampThreshold = 1000 * (interaction?.options.getInteger(OPTIONS.OlderBounds) ?? 0);
             if (youngerTimestampThreshold <= olderTimestampThreshold) {
-                interaction.channel?.send(
+                interaction?.channel?.send(
                     "The younger timestamp must have a higher value than the older timestamp. Try sending the command again with different parameters.");
                 return;
             }
         }
         else {
             const dateThreshold = new Date();
-            dayThreshold = interaction.options.getInteger(OPTIONS.Days) ?? 30;
+            dayThreshold = interaction?.options.getInteger(OPTIONS.Days) ?? 30;
             dateThreshold.setHours(dateThreshold.getHours() - dayThreshold * 24);
             youngerTimestampThreshold = dateThreshold.valueOf();
         }
@@ -190,7 +210,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
             }
             catch (error) {
                 if (error instanceof Error && error.toString().includes('Missing Permissions')) {
-                    await interaction.channel?.send(`This bot is missing the permissions to delete in ${deletingChannel.name}. Will skip this deletion round.`);
+                    await interaction?.channel?.send(`This bot is missing the permissions to delete in ${deletingChannel.name}. Will skip this deletion round.`);
                     break;
                 }
 
@@ -215,7 +235,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
     }
 
     async function TerminateOnQueryResponse(error: any) {
-        await interaction.channel?.send(
+        await interaction?.channel?.send(
             `This bot encountered an error while querying messages in ${deletingChannel?.name}. Terminating this routine. Please look at the logs for more details.`);
 
         console.log(`${routineRef.id}: ERROR in ${deletingChannel?.name} querying:`);
