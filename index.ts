@@ -18,22 +18,29 @@ client.login(token);
 RegisterCommands();
 
 // On Start
-client.once('ready', async () => { 
+client.once('ready', async () => {
     console.log('Data Terminator ready! Beginning default deletion routines.');
 
-    const ids = process.env.DEFAULT_DELETION?.split(',');
-    if(ids != undefined) {
+    let deleteInstructions = JSON.parse(process.env.DEFAULT_DELETION ?? "INVALID JSON");
+
+    if (deleteInstructions != undefined) {
+        console.log(deleteInstructions,typeof(deleteInstructions));
         const server = await client.guilds.fetch(serverId);
 
-        for(const channelId of ids) {
+        for (const instruction of deleteInstructions) {
             try {
-                const deletingChannel = (await server.channels.fetch(channelId));
-                if(deletingChannel?.isTextBased()) {
-                    const routineRef = addDeleteRoutine(deletingChannel as TextChannel, 30);
-                    DeleteProcess(deletingChannel as TextChannel, routineRef, false);
+                const days = instruction[0];
+                const channel = instruction[1];
+
+                const deletingChannel = (await server.channels.fetch(channel));
+                if (deletingChannel?.isTextBased()) {
+                    const routineRef = addDeleteRoutine(deletingChannel as TextChannel, days);
+                    DeleteProcess(deletingChannel as TextChannel, routineRef, false, undefined, days);
                 }
             }
-            catch {}
+            catch(e) { 
+                console.log("Error beginning default deletion routine: ", e)
+            }
         }
     }
 });
@@ -122,7 +129,7 @@ async function Delete(interaction: ChatInputCommandInteraction<CacheType>, comma
     await DeleteProcess(deletingChannel, routineRef, isIntervalDelete, interaction);
 }
 
-async function DeleteProcess(deletingChannel: TextChannel, routineRef: DeleteRoutine, isIntervalDelete: boolean, interaction?: ChatInputCommandInteraction<CacheType>) {
+async function DeleteProcess(deletingChannel: TextChannel, routineRef: DeleteRoutine, isIntervalDelete: boolean, interaction?: ChatInputCommandInteraction<CacheType>, days?: number) {
     while (routineIsActive(routineRef.id)) {
         // Get first message to find the rest
         let msgPtr: Message | undefined;
@@ -152,7 +159,7 @@ async function DeleteProcess(deletingChannel: TextChannel, routineRef: DeleteRou
         }
         else {
             const dateThreshold = new Date();
-            dayThreshold = interaction?.options.getInteger(OPTIONS.Days) ?? 30;
+            dayThreshold = interaction?.options.getInteger(OPTIONS.Days) ?? days ?? 30;
             dateThreshold.setHours(dateThreshold.getHours() - dayThreshold * 24);
             youngerTimestampThreshold = dateThreshold.valueOf();
         }
@@ -162,6 +169,14 @@ async function DeleteProcess(deletingChannel: TextChannel, routineRef: DeleteRou
         const addIfTooOld = (msg: Message) => {
             if (olderTimestampThreshold < msg.createdTimestamp && msg.createdTimestamp < youngerTimestampThreshold)
                 oldMsgs.push(msg);
+
+            // console.log(
+            //     "Message in " + deletingChannel.name,
+            //     olderTimestampThreshold,
+            //     youngerTimestampThreshold,
+            //     msg.createdTimestamp,
+            //     olderTimestampThreshold < msg.createdTimestamp && msg.createdTimestamp < youngerTimestampThreshold
+            // );
         };
         addIfTooOld(msgPtr);
 
