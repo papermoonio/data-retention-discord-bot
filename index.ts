@@ -21,7 +21,14 @@ RegisterCommands();
 client.once('ready', async () => {
     console.log('Data Terminator ready! Beginning default deletion routines.');
 
-    let deleteInstructions = JSON.parse(process.env.DEFAULT_DELETION ?? "INVALID JSON");
+    let deleteInstructions: any | Array<{0: number, 1: string}>;
+    try {
+        deleteInstructions = JSON.parse(process.env.DEFAULT_DELETION ?? "INVALID JSON");
+    }
+    catch {
+        deleteInstructions = undefined;
+    }
+    
 
     if (deleteInstructions != undefined) {
         console.log(deleteInstructions,typeof(deleteInstructions));
@@ -60,6 +67,8 @@ client.on('interactionCreate', async interaction => {
         case COMMANDS.Delete:
         case COMMANDS.IntervalDelete:
             await Delete(interaction, commandName); break;
+        case COMMANDS.BatchDelete:
+            await BatchDelete(interaction); break;
         case COMMANDS.List:
             await List(interaction); break;
         case COMMANDS.Stop:
@@ -70,6 +79,7 @@ client.on('interactionCreate', async interaction => {
             await SpamEmojis(interaction); break;
     }
 });
+
 
 const DELETE_ROUTINE_INTERVAL_PERIOD = 6 * 60 * 60 * 1000;
 const DELETE_ROUTINE_INTERVAL_TEXT = "6 hours";
@@ -259,6 +269,42 @@ async function DeleteProcess(deletingChannel: TextChannel, routineRef: DeleteRou
         activeDeleteRoutines = activeDeleteRoutines.filter(x => x.id != routineRef.id);
         return;
     }
+}
+
+async function BatchDelete(interaction: ChatInputCommandInteraction<CacheType>) {
+    const input = interaction.options.getString(OPTIONS.Batch);
+    let deleteInstructions: any | Array<{0: number, 1: string}>;
+    try {
+        deleteInstructions = JSON.parse(input ?? "INVALID JSON");
+    }
+    catch {
+        await interaction.reply({ content: `Incorrect format!`, ephemeral: true });
+        return;
+    }
+    
+
+    if (deleteInstructions != undefined) {
+        console.log(deleteInstructions,typeof(deleteInstructions));
+        const server = await client.guilds.fetch(serverId);
+
+        for (const instruction of deleteInstructions) {
+            try {
+                const days = instruction[0];
+                const channel = instruction[1];
+
+                const deletingChannel = (await server.channels.fetch(channel));
+                if (deletingChannel?.isTextBased()) {
+                    const routineRef = addDeleteRoutine(deletingChannel as TextChannel, days);
+                    DeleteProcess(deletingChannel as TextChannel, routineRef, false, undefined, days);
+                }
+            }
+            catch(e) { 
+                console.log("Error creating batch deletion routine: ", e)
+            }
+        }
+    }
+
+    await interaction.reply(`Batch function created using input: ${input}`);
 }
 
 type DeleteRoutine = {

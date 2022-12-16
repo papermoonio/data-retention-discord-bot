@@ -2,20 +2,23 @@ import { SlashCommandBuilder, Routes, PermissionFlagsBits } from 'discord.js';
 import { REST } from '@discordjs/rest';
 import { token, appId, serverId } from './index';
 
+
 export enum COMMANDS {
     Delete = 'delete',
     IntervalDelete = 'intervaldel',
     List = 'list',
     Stop = 'stop',
     Shutdown = 'shutdown',
-    Spam = 'spam'
+    Spam = 'spam',
+    BatchDelete = 'batchdelete'
 }
 
 export enum OPTIONS {
     Channel = 'channel',
     Days = 'days',
     OlderBounds = 'olderbounds',
-    YoungerBounds = 'youngerbounds'
+    YoungerBounds = 'youngerbounds',
+    Batch = 'batch'
 }
 
 // Commands
@@ -49,6 +52,14 @@ export async function RegisterCommands() {
             .addChannelOption(option => option
                 .setName(OPTIONS.Channel)
                 .setDescription('Channel to delete in.')
+                .setRequired(true)
+            )
+            .setDefaultMemberPermissions(0),
+        new SlashCommandBuilder().setName(COMMANDS.BatchDelete)
+            .setDescription('Begins a batch of deletion routines.')
+            .addStringOption(option => option
+                .setName(OPTIONS.Batch)
+                .setDescription('In the format: [[DAYS,"CHANNEL_ID"],[DAYS,"CHANNEL_ID"]...]')
                 .setRequired(true)
             )
             .setDefaultMemberPermissions(0),
