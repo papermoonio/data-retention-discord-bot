@@ -35,8 +35,7 @@ export async function RegisterCommands() {
                 .setName(OPTIONS.Days)
                 .setDescription('How old messages must be before deleting them.')
                 .setRequired(true)
-            )
-            .setDefaultMemberPermissions(0),
+            ),
         new SlashCommandBuilder().setName(COMMANDS.IntervalDelete)
             .setDescription('Deletes within a specified interval')
             .addIntegerOption(option => option
@@ -53,32 +52,29 @@ export async function RegisterCommands() {
                 .setName(OPTIONS.Channel)
                 .setDescription('Channel to delete in.')
                 .setRequired(true)
-            )
-            .setDefaultMemberPermissions(0),
+            ),
         new SlashCommandBuilder().setName(COMMANDS.BatchDelete)
             .setDescription('Begins a batch of deletion routines.')
             .addStringOption(option => option
                 .setName(OPTIONS.Batch)
                 .setDescription('In the format: [[DAYS,"CHANNEL_ID"],[DAYS,"CHANNEL_ID"]...]')
                 .setRequired(true)
-            )
-            .setDefaultMemberPermissions(0),
+            ),
         new SlashCommandBuilder().setName(COMMANDS.List)
-            .setDescription("Lists all active deletion routines.")
-            .setDefaultMemberPermissions(0),
+            .setDescription("Lists all active deletion routines."),
         new SlashCommandBuilder().setName(COMMANDS.Stop)
             .setDescription('Stops deletion')
             .addChannelOption(option => option
                 .setName(OPTIONS.Channel)
                 .setDescription('Channel to stop deletion in.')
                 .setRequired(true)
-            )
-            .setDefaultMemberPermissions(0),
+            ),
         new SlashCommandBuilder().setName(COMMANDS.Shutdown)
-            .setDescription('Terminates the bot.').setDefaultMemberPermissions(0),
+            .setDescription('Terminates the bot.'),
         new SlashCommandBuilder().setName(COMMANDS.Spam)
-            .setDescription("🤡").setDefaultMemberPermissions(0),
+            .setDescription("🤡"),
     ]
+        .map(command => command.setDefaultMemberPermissions(0))
         .map(command => command.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(token);

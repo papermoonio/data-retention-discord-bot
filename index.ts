@@ -179,14 +179,6 @@ async function DeleteProcess(deletingChannel: TextChannel, routineRef: DeleteRou
         const addIfTooOld = (msg: Message) => {
             if (olderTimestampThreshold < msg.createdTimestamp && msg.createdTimestamp < youngerTimestampThreshold)
                 oldMsgs.push(msg);
-
-            // console.log(
-            //     "Message in " + deletingChannel.name,
-            //     olderTimestampThreshold,
-            //     youngerTimestampThreshold,
-            //     msg.createdTimestamp,
-            //     olderTimestampThreshold < msg.createdTimestamp && msg.createdTimestamp < youngerTimestampThreshold
-            // );
         };
         addIfTooOld(msgPtr);
 
