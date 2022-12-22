@@ -296,7 +296,12 @@ async function BatchDelete(interaction: ChatInputCommandInteraction<CacheType>) 
         }
     }
 
-    await interaction.reply(`Batch function created using input: ${input}`);
+    if(input?.length != undefined && input?.length > 1000) {
+        await interaction.reply(`Batch function created using input: ${input.substring(0, 800)}...`);
+    }
+    else {
+        await interaction.reply(`Batch function created using input: ${input}`);
+    }
 }
 
 type DeleteRoutine = {
