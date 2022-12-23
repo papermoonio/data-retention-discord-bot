@@ -388,7 +388,6 @@ async function List(interaction: ChatInputCommandInteraction<CacheType>) {
         message += "ID      | Channel           | Status                        | Deleted  | Routines | Params \n";
         message += "===============================================================================================\n"
         for (let i = j * 10; i < activeDeleteRoutines.length && i < (j + 1) * 10; i++) {
-            console.log("i:", i);
             const routine = activeDeleteRoutines[i];
             const channel = await interaction.guild?.channels.fetch(routine.channelId);
             message += `${lFrmt(routine.id, 7)} | #${lFrmt(channel?.name ?? "", 16)} | ${lFrmt(routine.status, 29)} | ${lFrmt(routine.deleted.toString(), 8)} | ${lFrmt(routine.routines.toString(), 8)} | `;
