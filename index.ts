@@ -379,25 +379,30 @@ const lFrmt = (text: string, maxLength: number): string => text.concat("        
  */
 async function List(interaction: ChatInputCommandInteraction<CacheType>) {
     const numPages = Math.ceil(activeDeleteRoutines.length / 10);
-    let page = interaction.options.getInteger(OPTIONS.Page) ?? 1;
-    if (page > numPages) page = numPages;
-    else if(page < 1) page = 1;
 
-    let message = "================================= Active Deletion Routines: ===============================\n```\n";
-    message += "ID      | Channel           | Status                        | Deleted  | Routines | Params \n";
-    message += "===============================================================================================\n"
-    for (let i = (page - 1) * 10; i < activeDeleteRoutines.length && i < page * 10; i++) {
-        const routine = activeDeleteRoutines[i];
-        const channel = await interaction.guild?.channels.fetch(routine.channelId);
-        message += `${lFrmt(routine.id, 7)} | #${lFrmt(channel?.name ?? "", 16)} | ${lFrmt(routine.status, 29)} | ${lFrmt(routine.deleted.toString(), 8)} | ${lFrmt(routine.routines.toString(), 8)} | `;
-
-        if (routine.days < 0) message += `Interval`;
-        else message += `${routine.days} Days Old`;
-
-        message += '\n'
-    }
-    message += '```\n'
-    message +=  `Displaying Page ${page} / ${numPages}`;
+    let message = "================================= Active Deletion Routines: ===============================";
     await interaction.reply(message);
+
+    for(let j = 0; j < numPages; j++) {
+        message = "```\n";
+        message += "ID      | Channel           | Status                        | Deleted  | Routines | Params \n";
+        message += "===============================================================================================\n"
+        for (let i = j * 10; i < activeDeleteRoutines.length && i < (j + 1) * 10; i++) {
+            console.log("i:", i);
+            const routine = activeDeleteRoutines[i];
+            const channel = await interaction.guild?.channels.fetch(routine.channelId);
+            message += `${lFrmt(routine.id, 7)} | #${lFrmt(channel?.name ?? "", 16)} | ${lFrmt(routine.status, 29)} | ${lFrmt(routine.deleted.toString(), 8)} | ${lFrmt(routine.routines.toString(), 8)} | `;
+    
+            if (routine.days < 0) message += `Interval`;
+            else message += `${routine.days} Days Old`;
+    
+            message += '\n'
+        }
+        message += '```\n'
+        
+        await interaction?.channel?.send(message);
+        await timeout(QUERY_THROTTLE);
+    }
+
 }
 
