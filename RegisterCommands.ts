@@ -18,7 +18,8 @@ export enum OPTIONS {
     Days = 'days',
     OlderBounds = 'olderbounds',
     YoungerBounds = 'youngerbounds',
-    Batch = 'batch'
+    Batch = 'batch',
+    Page = 'page'
 }
 
 // Commands
@@ -61,6 +62,11 @@ export async function RegisterCommands() {
                 .setRequired(true)
             ),
         new SlashCommandBuilder().setName(COMMANDS.List)
+            .addIntegerOption(option => option
+                .setName(OPTIONS.Page)
+                .setDescription("The integer number of the page to query.")
+                .setRequired(false)
+            )
             .setDescription("Lists all active deletion routines."),
         new SlashCommandBuilder().setName(COMMANDS.Stop)
             .setDescription('Stops deletion')
