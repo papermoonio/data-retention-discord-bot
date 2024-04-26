@@ -15,3 +15,7 @@ SERVER_CHANNEL={INSERT THE SERVER CHANNEL THAT THE COMMANDS RESPOND TO}
 ```
 
 The user must also be an admin to use the bot.
+
+## Acknowledgement 
+
+The bot was created by [Jeremy](https://github.com/jboetticher/)
